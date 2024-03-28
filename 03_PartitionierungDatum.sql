@@ -98,11 +98,31 @@ SELECT OBJECT_NAME(object_id), * FROM sys.dm_db_index_physical_stats(DB_ID(), 0,
 
 SELECT RIGHT(YEAR(GETDATE()), 2);
 
+GO
 --Prozedur
-CREATE PROCEDURE neuesJahr
-AS
-	DECLARE @jahr char(2) = RIGHT(YEAR(GETDATE()), 2)
-	
-	DECLARE @name char(7) = CONCAT('M003_', @jahr)
+DROP PROC neuesJahr;
 
-	ALTER DATABASE [Demo] ADD FILEGROUP [@name]
+CREATE PROCEDURE neuesJahr AS
+DECLARE @jahr char(2) = RIGHT(YEAR(GETDATE()), 2);
+	
+DECLARE @nameDG char(7) = CONCAT('M003_', @jahr);
+DECLARE @nameFile char(8) = CONCAT('M003_F', @jahr);
+
+DECLARE @neueDG varchar(500) = 'ALTER DATABASE [Demo] ADD FILEGROUP [' + @nameDG + ']';
+EXEC @neueDG;
+
+DECLARE @addFile varchar(1024) = 'ALTER DATABASE [Demo] ADD FILE (NAME = ' + @nameFile + ', FILENAME = C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA\Demo\' + @nameFile + '.ndf), SIZE = 8192KB, FILEGROWTH = 65536KB) TO FILEGROUP [' + @nameDG + ']';
+EXEC @addFile;
+
+ALTER PARTITION FUNCTION pfDatum()
+SPLIT RANGE (CONCAT(YEAR(GETDATE())-1, '-12-31'));
+
+DECLARE @alterScheme VARCHAR(256) = 'ALTER PARTITION SCHEME schDatum NEXT USED' + @nameDG;
+EXEC @alterScheme;
+
+
+
+EXEC neuesJahr;
+
+INSERT INTO M003_Umsatz2 VALUES ('2024-02-02', 333)
+SELECT *, $partition.pfDatum(Datum) FROM M003_Umsatz2;
